@@ -5,7 +5,7 @@
  */
 define('BUHSOFT_API_URL', 'https://online.buhsoft.ru/online_kassa/api');
 define('BUHSOFT_METHOD_ADD', '/docs/add');
-define('BUHSOFT_METHOD_GET', '/docs/add');
+define('BUHSOFT_METHOD_GET', '/docs/get');
 define('BUHSOFT_METHOD_SERVER_INFO', '/server/info');
 
 /**
@@ -136,6 +136,8 @@ function uc_buhsoft_uc_order_view_update_form_submit(&$form, &$form_state)
                 $params['name_cashier'] = variable_get('uc_buhsoft_name_cashier', '');
             }
 
+            $params['price']['nal'] = $order->order_total;
+
             //Продажа смотреть тут https://online.buhsoft.ru/online_kassa/docs/dist/index.html
             $params['typeOperation'] = 0;
 
@@ -154,29 +156,43 @@ function uc_buhsoft_uc_order_view_update_form_submit(&$form, &$form_state)
                     $params['data'][$key]['name'] = 'Доствка заказа №' . $order_id;
                     $params['data'][$key]['count'] = 1;
                     $params['data'][$key]['price'] = number_format($order->quote['rate'], 2, '.', '');
-                    $params['data'][$key]['type_nds'] = variable_get('uc_buhsoft_vat_delivery',1);
+                    $params['data'][$key]['type_nds'] = variable_get('uc_buhsoft_vat_delivery', 1);
 
                 }
             }
 
-//            dpm(http_build_query($params));
+            $response = _uc_buhsoft_http_get_request(BUHSOFT_API_URL, BUHSOFT_METHOD_ADD, $params);
 
-            $responce = _uc_buhsoft_http_get_request(BUHSOFT_API_URL,BUHSOFT_METHOD_GET,$params);
+            if ($response->code != 200) {
+                    $message = t('Error code is "%code%". Status is "%status_message%".', array(
+                        '%code%' => $response->code,
+                        '%status_message%' => $response->status_message,
+                    ));
+                    drupal_set_message($message,'error');
+                    watchdog('error', $message);
+            }
 
+            $data = json_decode($response->data);
 
-
-
+            if ($data->ok != '1') {
+                $message = t('Error code is "%error_code%". Error message is "%error_message%".', array(
+                    '%error_code%' => $data->error_code,
+                    '%error_message%' => $data->error_message,
+                ));
+                drupal_set_message($message,'error');
+                watchdog('error', $message);
+            }
+            else {
+                // записываем ID
+                $order->buhsoft_id = $data->guid;
+                uc_order_save($order);
+                $message = t('Buhsoft server responded: guid is "%guid%", time is "%time%".', array('%guid%' => $data->guid, '%time%' => $data->time));
+                uc_order_comment_save($order_id,1,$message,'admin');
+                drupal_set_message($message,'status');
+                watchdog('status', $message);
+            }
         }
     }
-}
-
-
-/**
- * Непосредственно посылаем данные для работы с Buhsoft API
- */
-function send_data_to_buhsoft()
-{
-    var_dump('ЖЖЖЖЖЖЖЖЖЖЖ');
 }
 
 
@@ -210,5 +226,6 @@ function _uc_buhsoft_curl_request($url, $method, $params)
  */
 function _uc_buhsoft_http_get_request($url, $method, $params)
 {
-    return drupal_http_request($url . $method, array('data' => http_build_query($params)));
+    //странно но не работает через передачу параметров не через командную строку а как положено.
+    return drupal_http_request($url . $method .'?'.http_build_query($params));
 }
