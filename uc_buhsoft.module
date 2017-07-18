@@ -1,0 +1,214 @@
+<?php
+
+/**
+ * Определяем константы
+ */
+define('BUHSOFT_API_URL', 'https://online.buhsoft.ru/online_kassa/api');
+define('BUHSOFT_METHOD_ADD', '/docs/add');
+define('BUHSOFT_METHOD_GET', '/docs/add');
+define('BUHSOFT_METHOD_SERVER_INFO', '/server/info');
+
+/**
+ * Hook Schema Alter
+ * @param $schema
+ */
+function uc_buhsoft_schema_alter(&$schema)
+{
+    $schema['uc_orders']['fields']['buhsoft_id'] = array(
+        'type' => 'varchar',
+        'length' => 255,
+        'description' => 'Field for Buhsoft transaction store');
+}
+
+
+/**
+ * Implements hook_enable().
+ */
+function uc_buhsoft_enable()
+{
+    $table = 'uc_orders';
+    $field = 'buhsoft_id';
+    if (!db_field_exists($table, $field)) {
+        db_add_field($table, $field,
+            array(
+                'type' => 'varchar',
+                'length' => 255,
+                'default' => '',
+                'description' => 'Field for Buhsoft transaction store',
+            ),
+            array('indexes' => array(
+                'buhsoft_id' => array('buhsoft_id')),
+            )
+        );
+    }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function uc_buhsoft_menu()
+{
+    $items = array();
+
+    $items['admin/store/settings/uc_buhsoft'] = array(
+        'title' => 'Buhsoft setting',
+        'description' => 'Set buhsoft system for online order checkout',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('uc_buhsoft_settings_form'),
+        'access arguments' => array('administer store'),
+        'file' => 'uc_buhsoft.admin.inc',
+    );
+    return $items;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function uc_buhsoft_form_alter(&$form, &$form_state, $form_id)
+{
+
+    switch ($form_id) {
+        case "uc_order_view_update_form":
+
+            $form['#submit'][] = 'uc_buhsoft_uc_order_view_update_form_submit';
+
+            $form['buh_soft_submit'] = array(
+                '#type' => 'submit',
+                '#name' => 'to_buhsoft_api',
+                '#value' => t('To Buhsoft checkout'),
+            );
+            return $form;
+            break;
+        case 'default':
+            break;
+    }
+}
+
+/**
+ * Отправка заказа в Buhsoft для онлайн кассы
+ * @param $form
+ * @param $form_state
+ */
+function uc_buhsoft_uc_order_view_update_form_submit(&$form, &$form_state)
+{
+    if ($form_state['triggering_element']['#name'] == 'to_buhsoft_api') {
+        $order_id = (int)arg(3);
+        if (isset($order_id)) {
+            $order = uc_order_load($order_id);
+
+            //проверяем на правильность валюты
+            if ($order->currency != 'RUB') {
+                drupal_set_message(t('Attention! You must convert you store main currency to rubles (RUB)!'), 'error');
+                return;
+            }
+
+            $params = array();
+
+            if (!variable_get('uc_buhsoft_token', '')) {
+                drupal_set_message(t('You must setup Buhsoft module initially!'), 'error');
+                drupal_goto('admin/store/settings/uc_buhsoft');
+            }
+
+            $params['token'] = variable_get('uc_buhsoft_token', '');
+
+            if (variable_get('uc_buhsoft_diller', '')) {
+                $params['diller'] = variable_get('uc_buhsoft_diller', '');
+            }
+
+            $params['cms'] = variable_get('uc_buhsoft_cms', 'Drupal 7 / Ubercart 3');
+
+            if (isset($order->primary_email)) {
+                $params['email'] = $order->primary_email;
+            } else {
+                $params['email'] = variable_get('uc_buhsoft_default_email', '');
+            }
+
+            if (isset($order->delivery_phone)) {
+                $params['phone'] = $order->delivery_phone;
+            } else {
+                $params['phone'] = variable_get('uc_buhsoft_default_phone', '');
+            }
+
+            $params['print'] = variable_get('uc_buhsoft_print', 1);
+
+            if (variable_get('uc_buhsoft_name_cashier', '')) {
+                $params['name_cashier'] = variable_get('uc_buhsoft_name_cashier', '');
+            }
+
+            //Продажа смотреть тут https://online.buhsoft.ru/online_kassa/docs/dist/index.html
+            $params['typeOperation'] = 0;
+
+            foreach ($order->products as $key => $product) {
+                $node = node_load($product->nid);
+                $params['data'][$key]['name'] = $product->title;
+                $params['data'][$key]['count'] = $product->qty;
+                $params['data'][$key]['price'] = number_format($product->price, 2, '.', '');
+                $params['data'][$key]['type_nds'] = variable_get('uc_buhsoft_vat_' . $node->type, 1);
+
+            }
+
+            if (isset($order->quote['rate'])) {
+                if ($order->quote['rate'] > 0) {
+                    $key++;
+                    $params['data'][$key]['name'] = 'Доствка заказа №' . $order_id;
+                    $params['data'][$key]['count'] = 1;
+                    $params['data'][$key]['price'] = number_format($order->quote['rate'], 2, '.', '');
+                    $params['data'][$key]['type_nds'] = variable_get('uc_buhsoft_vat_delivery',1);
+
+                }
+            }
+
+//            dpm(http_build_query($params));
+
+            $responce = _uc_buhsoft_http_get_request(BUHSOFT_API_URL,BUHSOFT_METHOD_GET,$params);
+
+
+
+
+        }
+    }
+}
+
+
+/**
+ * Непосредственно посылаем данные для работы с Buhsoft API
+ */
+function send_data_to_buhsoft()
+{
+    var_dump('ЖЖЖЖЖЖЖЖЖЖЖ');
+}
+
+
+/**
+ * Запрос в систему Buhsoft через cUrl
+ * @param $url
+ * @param $method
+ * @param $params
+ * @return mixed
+ */
+function _uc_buhsoft_curl_request($url, $method, $params)
+{
+    $curl = curl_init();
+    curl_setopt($curl, CURLOPT_URL, $url . $method);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curl, CURLOPT_POST, true);
+    curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($params));
+    $response = curl_exec($curl);
+    curl_close($curl);
+
+    return $response;
+}
+
+
+/**
+ * Запрос в систему Buhsoft через file_get_content (Drupalовская внутренняя функция drupal_http_request)
+ * @param $url
+ * @param $method
+ * @param $params
+ * @return object
+ */
+function _uc_buhsoft_http_get_request($url, $method, $params)
+{
+    return drupal_http_request($url . $method, array('data' => http_build_query($params)));
+}
