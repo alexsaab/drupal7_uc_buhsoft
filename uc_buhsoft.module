@@ -73,7 +73,7 @@ function uc_buhsoft_form_alter(&$form, &$form_state, $form_id)
             if (isset($order_id)) {
                 $order = uc_order_load($order_id);
                 if (isset($order)) {
-                    if (!$order->buhsoft_id) {
+                    if ((!$order->buhsoft_id) && ($order->order_status == 'payment_received')) {
                         $form['#submit'][] = 'uc_buhsoft_uc_order_view_update_form_submit';
                         $form['buh_soft_submit'] = array(
                             '#type' => 'submit',
@@ -219,6 +219,23 @@ function uc_buhsoft_uc_order_view_update_form_submit(&$form, &$form_state)
     }
 }
 
+/**
+ * Implements hook_uc_order().
+ * Функция нужна для оплаты товара
+ */
+function uc_buhsoft_uc_order($op, &$order, $arg2)
+{
+    if ($op == 'save') {
+        if ($order->order_status == 'payment_received') {
+            $payment_method = $order->payment_method;
+            if (variable_get('uc_buhsoft_method_' . $payment_method, false) && (!$order->buhsoft_id)) {
+                //Какая то странная ошибка вылезает, возможно в заказ не передаются данные о товарах
+                _uc_buhsoft_uc_order_perform($order);
+                return;
+            }
+        }
+    }
+}
 
 /**
  * Запрос в систему Buhsoft через cUrl
@@ -236,7 +253,6 @@ function _uc_buhsoft_curl_request($url, $method, $params)
     curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($params));
     $response = curl_exec($curl);
     curl_close($curl);
-
     return $response;
 }
 
@@ -263,23 +279,6 @@ function uc_buhsoft_uc_order_pane_alter(&$panes)
     $panes['payment']['callback'] = 'uc_buhsoft_uc_payment_pane_callback';
 }
 
-
-/**
- * Implements hook_uc_order().
- * Функция нужна для оптаты товара
- */
-function uc_buhsoft_uc_order($op, &$order, $arg2)
-{
-
-
-    if ($order->order_status == 'payment_received') {
-        $payment_method = $order->payment_method;
-        if (variable_get('uc_buhsoft_method_' . $payment_method, false) && (!$order->buhsoft_id)) {
-            _uc_buhsoft_uc_order_perform($order);
-        }
-    }
-
-}
 
 /**
  * Переделываем панели
