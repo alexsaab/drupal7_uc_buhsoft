@@ -21,32 +21,43 @@ function uc_buhsoft_settings_form($form, &$form_state)
         } elseif ($data->ok == '1') {
             $form['uc_buhsoft_status'] = array(
                 '#type' => 'markup',
+                '#prefix' => '</br>',
                 '#markup' => t('Server status is ok.'),
             );
             $form['uc_buhsoft_status_0'] = array(
                 '#type' => 'markup',
+                '#prefix' => '</br>',
                 '#markup' => t('ServerWorker is "%serverWorker%".', array('%serverWorker%' => $data->info->serverWorker)),
             );
             $form['uc_buhsoft_status_1'] = array(
                 '#type' => 'markup',
+                '#prefix' => '</br>',
                 '#markup' => t('Period is "%period%".', array('%period%' => $data->info->period)),
             );
             $form['uc_buhsoft_status_2'] = array(
                 '#type' => 'markup',
+                '#prefix' => '</br>',
                 '#markup' => t('Guid_cashier is "%guid_cashier%".', array('%guid_cashier%' => $data->info->guid_cashier)),
             );
             $form['uc_buhsoft_status_3'] = array(
                 '#type' => 'markup',
+                '#prefix' => '</br>',
                 '#markup' => t('Guid_kkm is "%guid_kkm%".', array('%guid_kkm%' => $data->info->guid_kkm)),
             );
             $form['uc_buhsoft_status_4'] = array(
                 '#type' => 'markup',
+                '#prefix' => '</br>',
                 '#markup' => t('LastDate_check is "%lastDate_check%".', array('%lastDate_check%' => $data->info->lastDate_check)),
             );
-            $form['uc_buhsoft_status_5'] = array(
-                '#type' => 'markup',
-                '#markup' => t('MustBePrinted is "%mustBePrinted%".', array('%mustBePrinted%' => $data->info->mustBePrinted)),
-            );
+
+            if (isset($data->info->mustBePrinted)) {
+                $form['uc_buhsoft_status_5'] = array(
+                    '#type' => 'markup',
+                    '#prefix' => '</br>',
+                    '#markup' => t('MustBePrinted is "%mustBePrinted%".', array('%mustBePrinted%' => $data->info->mustBePrinted)),
+                );
+            }
+
         }
     }
 
