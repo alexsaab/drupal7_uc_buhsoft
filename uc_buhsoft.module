@@ -96,8 +96,9 @@ function uc_buhsoft_form_alter(&$form, &$form_state, $form_id)
  * Большая функция, которая непосредственно и все отправляет в онлайн кассу
  * @param $order
  */
-function _uc_buhsoft_uc_order_perform(&$order)
+function uc_buhsoft_online_checkout($order)
 {
+
     //проверяем на правильность валюты
     if ($order->currency != 'RUB') {
         drupal_set_message(t('Attention! You must convert you store main currency to rubles (RUB)!'), 'error');
@@ -213,25 +214,7 @@ function uc_buhsoft_uc_order_view_update_form_submit(&$form, &$form_state)
         if (isset($order_id)) {
             $order = uc_order_load($order_id);
             if (isset($order)) {
-                _uc_buhsoft_uc_order_perform($order);
-            }
-        }
-    }
-}
-
-/**
- * Implements hook_uc_order().
- * Функция нужна для оплаты товара
- */
-function uc_buhsoft_uc_order($op, &$order, $arg2)
-{
-    if ($op == 'save') {
-        if ($order->order_status == 'payment_received') {
-            $payment_method = $order->payment_method;
-            if (variable_get('uc_buhsoft_method_' . $payment_method, false) && (!$order->buhsoft_id)) {
-                //Какая то странная ошибка вылезает, возможно в заказ не передаются данные о товарах
-                _uc_buhsoft_uc_order_perform($order);
-                return;
+                uc_buhsoft_online_checkout($order);
             }
         }
     }
