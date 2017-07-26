@@ -1,6 +1,12 @@
 <?php
 
-
+/**
+ * Форма аминистративной установки модуля (параметры)
+ * @param $form
+ * @param $form_state
+ *
+ * @return mixed
+ */
 function uc_buhsoft_settings_form($form, &$form_state)
 {
     $response = _uc_buhsoft_http_get_request(BUHSOFT_API_URL, BUHSOFT_METHOD_SERVER_INFO, array('token' => variable_get('uc_buhsoft_token', '')));
@@ -175,6 +181,7 @@ function uc_buhsoft_settings_form($form, &$form_state)
         '#default_value' => variable_get('uc_buhsoft_vat_delivery', 1),
     );
 
+    // Возвращаем форму с кнопкой
     return system_settings_form($form);
 
 }

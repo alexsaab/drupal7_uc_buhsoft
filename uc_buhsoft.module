@@ -93,7 +93,7 @@ function uc_buhsoft_form_alter(&$form, &$form_state, $form_id)
 }
 
 /**
- * Большая функция, которая непосредственно и все отправляет в онлайн кассу
+ * Большая функция, которая непосредственно и все отправляет в онлайн кассу через get запрос
  * @param $order
  */
 function uc_buhsoft_online_checkout($order)
@@ -203,7 +203,7 @@ function uc_buhsoft_online_checkout($order)
 
 
 /**
- * Отправка заказа в Buhsoft для онлайн кассы
+ * Отправка заказа в Buhsoft для онлайн кассы (Form submit)
  * @param $form
  * @param $form_state
  */
